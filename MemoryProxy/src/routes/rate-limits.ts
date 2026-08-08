@@ -2,6 +2,7 @@ import type { Context } from "hono";
 import type { ProxyConfig } from "../types.js";
 import { assertKeySegment } from "../storage/key-utils.js";
 import { getRateLimitStore } from "../rate-limit/guard.js";
+import { adminAuthError, checkAdminAuth } from "./admin-auth.js";
 
 interface RateLimitBody {
   instance_id?: unknown;
@@ -19,6 +20,19 @@ export function createRateLimitHandlers(config: ProxyConfig) {
 }
 
 async function handleGet(c: Context, config: ProxyConfig): Promise<Response> {
+  const auth = requireAdmin(c, config);
+  if (auth) return auth;
+
+  if (!isRateLimitEnabled(config)) {
+    return ok(c, {
+      enabled: false,
+      tpm: 0,
+      qpm: 0,
+      window_seconds: 60,
+      overrides: [],
+    });
+  }
+
   try {
     const store = getRateLimitStore(config);
     const instanceId = c.req.query("instance_id");
@@ -54,6 +68,13 @@ async function handleGet(c: Context, config: ProxyConfig): Promise<Response> {
 }
 
 async function handlePut(c: Context, config: ProxyConfig): Promise<Response> {
+  const auth = requireAdmin(c, config);
+  if (auth) return auth;
+
+  if (!isRateLimitEnabled(config)) {
+    return error(c, 400, "rate limiting is disabled; configure internal Redis before enabling it");
+  }
+
   const parsed = await parseBody(c);
   if (parsed instanceof Response) return parsed;
   const inputTpm = positiveInteger(parsed.input_tpm);
@@ -83,6 +104,13 @@ async function handlePut(c: Context, config: ProxyConfig): Promise<Response> {
 }
 
 async function handleDelete(c: Context, config: ProxyConfig): Promise<Response> {
+  const auth = requireAdmin(c, config);
+  if (auth) return auth;
+
+  if (!isRateLimitEnabled(config)) {
+    return error(c, 400, "rate limiting is disabled; configure internal Redis before enabling it");
+  }
+
   const parsed = await parseBody(c);
   if (parsed instanceof Response) return parsed;
 
@@ -148,4 +176,13 @@ function ok(c: Context, data: Record<string, unknown>): Response {
 
 function error(c: Context, status: 400 | 503, message: string): Response {
   return c.json({ code: status, message }, status);
+}
+
+function requireAdmin(c: Context, config: ProxyConfig): Response | null {
+  const result = checkAdminAuth(c, config.admin.apiKey);
+  return result === "ok" ? null : adminAuthError(c, result);
+}
+
+function isRateLimitEnabled(config: ProxyConfig): boolean {
+  return config.rateLimit.tpm > 0 || config.rateLimit.qpm > 0;
 }

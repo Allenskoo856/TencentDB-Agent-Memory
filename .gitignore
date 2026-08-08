@@ -68,6 +68,13 @@ deploy/global-images/.admin-key
 deploy/global-images/.proxy-config/
 deploy/global-images/.memory-core-config/
 
+# Source-built intranet deployment secrets and local runtime artifacts
+deploy/intranet/.env
+deploy/intranet/.env.*
+!deploy/intranet/.env.example
+deploy/intranet/backups/
+deploy/intranet/runtime/
+
 # Eval scripts output
 scripts/eval-report.json
 

@@ -3,6 +3,10 @@
 > 📖 **本文档专门讲解部署形态、Hermes 集成与端到端验证。**
 > 想了解插件的核心能力、配置参数、CLI 工具，请回到 **[主 README](README.md)**。
 
+> **内网源码构建部署请优先阅读**：[docs/DEPLOYMENT_CN.md](./docs/DEPLOYMENT_CN.md)。
+> 本文保留 Standalone/Service 与云端集成背景；它不替代 `deploy/intranet` 的四服务
+> Compose、内网 LLM 配置、备份和离线镜像交付流程。
+
 `memory-tencentdb` 提供 **两种独立部署形态**，两种形态都能被外部 Agent（典型为 Hermes）通过 HTTP API 调用，并各自适配不同的部署规模与运维要求：
 
 | 形态 | 后端存储 | 状态后端 | 多租户 | 适用场景 |

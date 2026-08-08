@@ -29,6 +29,7 @@ FROM node:22-slim AS deps-builder
 # apt 源默认走 Debian 官方，公网可直接构建。内网构建加速：
 #   docker build --build-arg APT_MIRROR=mirrors.tencent.com .
 ARG APT_MIRROR=deb.debian.org
+ARG NPM_REGISTRY=https://registry.npmjs.org
 RUN if [ "$APT_MIRROR" != "deb.debian.org" ]; then \
       sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
       sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list 2>/dev/null || true; \
@@ -50,6 +51,7 @@ WORKDIR /build
 # `npm install` 稳定报 `Cannot read properties of null (reading
 # 'edgesOut')`）。升到 11 规避，不影响其它构建行为。
 RUN npm install -g npm@11 --no-audit --no-fund
+RUN npm config set registry "$NPM_REGISTRY"
 
 # Copy package metadata first to maximize Docker layer cache
 COPY package.json ./
@@ -137,6 +139,10 @@ COPY --from=deps-builder /build /app
 
 # Data directory (mountable as PVC in K8s)
 RUN mkdir -p /data/tdai-memory /data/config
+RUN groupadd -r app && useradd -r -g app -u 10001 -m app && \
+    chown -R app:app /app /data
+
+USER app
 
 # ── Runtime configuration ──
 # 配置文件路径: 挂载 yaml 到 /data/config/tdai-gateway.yaml

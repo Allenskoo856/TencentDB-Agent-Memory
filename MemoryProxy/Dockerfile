@@ -15,14 +15,21 @@
 #   DOCKER_BUILDKIT=1 docker build -t memory-proxy:latest .
 #
 # 说明: 运行时用 tsx 直接执行 TypeScript（不预编译）。tsx 是 devDependency，
-# 因此镜像内保留 dev 依赖；optional 依赖（better-sqlite3 / cos-nodejs-sdk-v5 /
-# cost-guard）保留，用于 sqlite / cos 存储后端与 CostGuard 智能路由。
+# 因此镜像内保留 dev 依赖；better-sqlite3 / cos-nodejs-sdk-v5 仍是 optional。
+# cost-guard 是私有扩展，不属于公开 fork 的构建输入，默认 fail closed。
 # ──────────────────────────────────────────────────────────────────────
 
 # ──────────────────────────────────────────────────────────────────────
 # Stage 1: deps-builder — install deps (with toolchain for native bindings)
 # ──────────────────────────────────────────────────────────────────────
 FROM node:22-slim AS deps-builder
+
+ARG APT_MIRROR=deb.debian.org
+ARG NPM_REGISTRY=https://registry.npmjs.org
+RUN if [ "$APT_MIRROR" != "deb.debian.org" ]; then \
+      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
+      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list 2>/dev/null || true; \
+    fi
 
 # 使用 Debian 官方 apt 源（deb.debian.org）。如构建缓慢，可在本地构建时替换为镜像源，例如：
 #   sed -i 's|deb.debian.org|mirrors.tencent.com|g' /etc/apt/sources.list.d/debian.sources
@@ -43,11 +50,12 @@ WORKDIR /app
 # `npm install` 稳定报 `Cannot read properties of null (reading
 # 'edgesOut')`）。升到 11 规避，不影响其它构建行为。
 RUN npm install -g npm@11 --no-audit --no-fund
+RUN npm config set registry "$NPM_REGISTRY"
 
 # 先复制包元数据以最大化 Docker layer cache。
 COPY package.json package-lock.json ./
 
-# 安装全部依赖（保留 dev：tsx 运行时需要；保留 optional：sqlite/cos/cost-guard）。
+# 安装全部依赖（保留 dev：tsx 运行时需要；保留 optional：sqlite/cos）。
 # 使用 BuildKit npm cache mount 大幅加速重复构建。
 RUN --mount=type=cache,id=proxy-npm-cache,target=/root/.npm \
     npm install \
@@ -61,6 +69,12 @@ COPY . .
 # Stage 2: runtime — slim image
 # ──────────────────────────────────────────────────────────────────────
 FROM node:22-slim AS runtime
+
+ARG APT_MIRROR=deb.debian.org
+RUN if [ "$APT_MIRROR" != "deb.debian.org" ]; then \
+      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
+      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list 2>/dev/null || true; \
+    fi
 
 # 使用 Debian 官方 apt 源（deb.debian.org）。如构建缓慢，可自行替换为镜像源。
 
@@ -77,7 +91,8 @@ WORKDIR /app
 # 非 root 运行（安全基线）
 RUN groupadd -r app && useradd -r -g app -u 10001 -m app
 
-# 从 builder 拷贝整个 /app（含 node_modules 里指向 packages/cost-guard 的 file: 软链）
+# 从 builder 拷贝整个 /app。cost-guard 是内部可选扩展，公开源码构建不
+# 依赖它；启用 COS 时仍会在启动阶段 fail closed。
 COPY --from=deps-builder /app /app
 
 # 数据 / 日志目录（可作为 K8s PVC 挂载）

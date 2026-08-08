@@ -99,7 +99,11 @@ export async function initProxyStorage(config: StorageConfig): Promise<ProxyStor
   if (_instance) return _instance;
   if (config.backend === "cos") {
     try {
-      const mod = await import("@context-proxy/cost-guard");
+      // Keep the private extension optional for public source builds. A
+      // normal clone has no submodule, so a literal dynamic import would make
+      // TypeScript resolve a non-existent package during compilation.
+      const costGuardModule = "@context-proxy/cost-guard";
+      const mod = await import(/* @vite-ignore */ costGuardModule);
       if (typeof mod.openKernelStsCosBackend === "function") {
         _kernelStsFactory = mod.openKernelStsCosBackend as (opts: KernelStsCosOptions) => CosLikeBackend;
       } else {

@@ -19,21 +19,29 @@
 #     team-memory-control:local
 # ──────────────────────────────────────────────────────────────────────
 ARG PANEL_UI=web
+ARG APT_MIRROR=deb.debian.org
+ARG NPM_REGISTRY=https://registry.npmjs.org
 
 # ── base：node:22-slim + 腾讯云 apt 镜像 + 原生编译工具链 ──────────────
 FROM node:22-slim AS base
 
-RUN sed -i 's|deb.debian.org|mirrors.tencent.com|g' /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
-    sed -i 's|deb.debian.org|mirrors.tencent.com|g' /etc/apt/sources.list 2>/dev/null || true
+ARG APT_MIRROR=deb.debian.org
+ARG NPM_REGISTRY=https://registry.npmjs.org
+
+RUN if [ "$APT_MIRROR" != "deb.debian.org" ]; then \
+      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources 2>/dev/null || \
+      sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list 2>/dev/null || true; \
+    fi
 
 # better-sqlite3 原生编译 + git（可选）+ curl（healthcheck）
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     apt-get update && apt-get install -y --no-install-recommends \
-      python3 make g++ git curl ca-certificates \
+      python3 make g++ git curl ca-certificates tini \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+RUN npm config set registry "$NPM_REGISTRY"
 
 # ── ui-builder：只构建被选中的面板（web 或 frontend）→ /ui/dist ────────
 # WEB_UI=1（默认）：正常构建面板 UI。
@@ -71,10 +79,17 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=8123
 RUN mkdir -p /app/logs /data
+COPY docker/local/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
+    groupadd -r app && useradd -r -g app -u 10001 -m app && \
+    chown -R app:app /app /data /usr/local/bin/docker-entrypoint.sh
+
+USER app
 EXPOSE 8123
 
 HEALTHCHECK --interval=15s --timeout=10s --retries=20 --start-period=60s \
   CMD curl -fsS http://127.0.0.1:8123/health || exit 1
 
 # control 以 tsx 直跑源码（stateless panel，入口 src/panel/）
-CMD ["node", "--import", "tsx/esm", "src/index.ts"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/usr/local/bin/docker-entrypoint.sh"]
+CMD ["start"]

@@ -215,7 +215,7 @@ validate() {
   fi
 }
 
-main() {
+start_service() {
   parse_args "$@"
   validate
 
@@ -236,6 +236,24 @@ main() {
   echo "  tmc callback:${TMC_CALLBACK_URL:-<none>}"
 
   exec node dist/server.mjs
+}
+
+main() {
+  case "${1:-start}" in
+    start)
+      start_service "$@"
+      ;;
+    mcp)
+      shift || true
+      exec node dist/mcp/server.mjs "$@"
+      ;;
+    smoke)
+      exec /usr/local/bin/smoke-test.sh
+      ;;
+    *)
+      exec "$@"
+      ;;
+  esac
 }
 
 main "$@"

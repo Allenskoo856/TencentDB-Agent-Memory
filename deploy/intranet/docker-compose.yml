@@ -1,0 +1,175 @@
+name: ${COMPOSE_PROJECT_NAME:-tdai-memory-intranet}
+
+services:
+  memory-core:
+    build:
+      context: ../../MemoryCore
+      dockerfile: Dockerfile
+      args:
+        APT_MIRROR: ${APT_MIRROR:-deb.debian.org}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    image: ${CORE_IMAGE:-tdai-memory-core:intranet}
+    restart: unless-stopped
+    ports:
+      - "${INTRANET_BIND_ADDRESS:-127.0.0.1}:${CORE_HOST_PORT:-8420}:8420"
+    environment:
+      NODE_ENV: production
+      TDAI_GATEWAY_CONFIG: /data/config/tdai-gateway.yaml
+      TDAI_GATEWAY_HOST: 0.0.0.0
+      TDAI_GATEWAY_PORT: 8420
+      TDAI_GATEWAY_API_KEY: ${TDAI_GATEWAY_API_KEY:?set TDAI_GATEWAY_API_KEY in deploy/intranet/.env}
+      TDAI_DATA_DIR: /data/tdai-memory
+      TDAI_LLM_BASE_URL: ${TDAI_LLM_BASE_URL:?set TDAI_LLM_BASE_URL in deploy/intranet/.env}
+      TDAI_LLM_API_KEY: ${TDAI_LLM_API_KEY:?set TDAI_LLM_API_KEY in deploy/intranet/.env}
+      TDAI_LLM_MODEL: ${TDAI_LLM_MODEL:?set TDAI_LLM_MODEL in deploy/intranet/.env}
+      TDAI_LLM_MAX_TOKENS: ${TDAI_LLM_MAX_TOKENS:-4096}
+      TDAI_LLM_TIMEOUT_MS: ${TDAI_LLM_TIMEOUT_MS:-120000}
+    volumes:
+      - core-data:/data/tdai-memory
+      - ./config/tdai-gateway.yaml:/data/config/tdai-gateway.yaml:ro
+    networks: [intranet]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8420/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  core-bootstrap:
+    image: ${CORE_IMAGE:-tdai-memory-core:intranet}
+    profiles: [bootstrap]
+    depends_on:
+      memory-core:
+        condition: service_healthy
+    environment:
+      TDAI_BOOTSTRAP_URL: http://memory-core:8420
+      TDAI_GATEWAY_API_KEY: ${TDAI_GATEWAY_API_KEY:?set TDAI_GATEWAY_API_KEY in deploy/intranet/.env}
+      TDAI_ADMIN_USER_KEY: ${TDAI_ADMIN_USER_KEY:?set TDAI_ADMIN_USER_KEY in deploy/intranet/.env}
+      TDAI_ADMIN_USERNAME: ${TDAI_ADMIN_USERNAME:-admin}
+      TDAI_INSTANCE_ID: ${TDAI_INSTANCE_ID:-default}
+    volumes:
+      - ./scripts/bootstrap-admin.sh:/run/bootstrap-admin.sh:ro
+    entrypoint: ["/bin/sh", "/run/bootstrap-admin.sh"]
+    networks: [intranet]
+
+  memory-knowledge:
+    build:
+      context: ../../MemoryKnowledge
+      dockerfile: Dockerfile
+      args:
+        APT_MIRROR: ${APT_MIRROR:-deb.debian.org}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    image: ${KNOWLEDGE_IMAGE:-tdai-memory-knowledge:intranet}
+    restart: unless-stopped
+    ports:
+      - "${INTRANET_BIND_ADDRESS:-127.0.0.1}:${KNOWLEDGE_HOST_PORT:-8424}:8421"
+    environment:
+      NODE_ENV: production
+      PORT: 8421
+      API_PREFIX: /v3
+      KNOWLEDGE_DATA_DIR: /app/data
+      KNOWLEDGE_DB_PATH: /app/data/knowledge.db
+      KNOWLEDGE_PUBLIC_BASE_URL: ${KNOWLEDGE_PUBLIC_BASE_URL:-http://127.0.0.1:8424/v3}
+      TMC_CALLBACK_URL: http://memory-panel:8123
+      LLM_MODE: ${KNOWLEDGE_LLM_MODE:-custom}
+      LLM_PROTOCOL: ${KNOWLEDGE_LLM_PROTOCOL:-openai}
+      LLM_PROVIDER: ${KNOWLEDGE_LLM_PROVIDER:-intranet}
+      LLM_BASE_URL: ${KNOWLEDGE_LLM_BASE_URL:-${TDAI_LLM_BASE_URL:?set TDAI_LLM_BASE_URL or KNOWLEDGE_LLM_BASE_URL}}
+      LLM_API_KEY: ${KNOWLEDGE_LLM_API_KEY:-${TDAI_LLM_API_KEY:?set TDAI_LLM_API_KEY or KNOWLEDGE_LLM_API_KEY}}
+      LLM_MODEL: ${KNOWLEDGE_LLM_MODEL:-${TDAI_LLM_MODEL:?set TDAI_LLM_MODEL or KNOWLEDGE_LLM_MODEL}}
+      LLM_MAX_TOKENS: ${KNOWLEDGE_LLM_MAX_TOKENS:-32768}
+      LLM_TIMEOUT_MS: ${KNOWLEDGE_LLM_TIMEOUT_MS:-1200000}
+      LOG_LEVEL: ${KNOWLEDGE_LOG_LEVEL:-info}
+    volumes:
+      - knowledge-data:/app/data
+    networks: [intranet]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8421/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  memory-panel:
+    build:
+      context: ../../MemoryPanel
+      dockerfile: docker/local/Dockerfile.local
+      args:
+        PANEL_UI: ${PANEL_UI:-web}
+        WEB_UI: ${PANEL_WEB_UI:-1}
+        APT_MIRROR: ${APT_MIRROR:-deb.debian.org}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    image: ${PANEL_IMAGE:-tdai-memory-panel:intranet}
+    restart: unless-stopped
+    depends_on:
+      memory-core:
+        condition: service_healthy
+      memory-knowledge:
+        condition: service_healthy
+    ports:
+      - "${INTRANET_BIND_ADDRESS:-127.0.0.1}:${PANEL_HOST_PORT:-8125}:8123"
+    environment:
+      NODE_ENV: production
+      TDAI_GATEWAY_API_KEY: ${TDAI_GATEWAY_API_KEY:?set TDAI_GATEWAY_API_KEY in deploy/intranet/.env}
+      TDAI_PROXY_PUBLIC_URL: ${TDAI_PROXY_PUBLIC_URL:-http://127.0.0.1:8096}
+      HOST: 0.0.0.0
+      PORT: 8123
+      METADATA_INSTANCES_TEMPLATE: /run/config/metadata-instances.template.json
+      METADATA_INSTANCES_CONFIG: /tmp/metadata-instances.json
+      KNOWLEDGE_SERVICE_URL: http://memory-knowledge:8421
+      KNOWLEDGE_AUTH_TOKEN: ${KNOWLEDGE_AUTH_TOKEN:-}
+      KNOWLEDGE_LLM_BINDING_SYNC: "false"
+      KNOWLEDGE_LLM_PROXY_BASE_URL: http://memory-proxy:8096
+      LOG_LEVEL: ${PANEL_LOG_LEVEL:-info}
+      LOG_FORMAT: ${PANEL_LOG_FORMAT:-json}
+    volumes:
+      - ./config/metadata-instances.template.json:/run/config/metadata-instances.template.json:ro
+    networks: [intranet]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8123/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  memory-proxy:
+    build:
+      context: ../../MemoryProxy
+      dockerfile: Dockerfile
+      args:
+        APT_MIRROR: ${APT_MIRROR:-deb.debian.org}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org}
+    image: ${PROXY_IMAGE:-tdai-memory-proxy:intranet}
+    restart: unless-stopped
+    depends_on:
+      memory-core:
+        condition: service_healthy
+    ports:
+      - "${INTRANET_BIND_ADDRESS:-127.0.0.1}:${PROXY_HOST_PORT:-8096}:8096"
+    environment:
+      NODE_ENV: production
+      PROXY_DB_PATH: /data/tdai-memory-proxy/proxy.db
+      TDAI_GATEWAY_API_KEY: ${TDAI_GATEWAY_API_KEY:?set TDAI_GATEWAY_API_KEY in deploy/intranet/.env}
+      TDAI_PROXY_AUTH_API_KEY: ${TDAI_GATEWAY_API_KEY:?set TDAI_GATEWAY_API_KEY in deploy/intranet/.env}
+      INTRANET_LLM_BASE_URL: ${INTRANET_LLM_BASE_URL:-${TDAI_LLM_BASE_URL:?set TDAI_LLM_BASE_URL or INTRANET_LLM_BASE_URL}}
+      INTRANET_LLM_API_KEY: ${INTRANET_LLM_API_KEY:-${TDAI_LLM_API_KEY:?set TDAI_LLM_API_KEY or INTRANET_LLM_API_KEY}}
+      NODE_OPTIONS: --max-old-space-size=${PROXY_MAX_OLD_SPACE_MB:-1536}
+    volumes:
+      - proxy-data:/data/tdai-memory-proxy
+      - ./config/proxy.yaml:/data/config.yaml:ro
+    networks: [intranet]
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8096/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+volumes:
+  core-data:
+  knowledge-data:
+  proxy-data:
+
+networks:
+  intranet:
+    internal: ${COMPOSE_NETWORK_INTERNAL:-false}

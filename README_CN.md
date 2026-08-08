@@ -31,20 +31,34 @@
 
 # 安装
 
-一次拉起完整三件套（`memory-core` + `memory-hub` + `proxy`）：
+内网 / 单机部署现在以源码构建的四服务 Compose 为主：`memory-core`、
+`memory-knowledge`、`memory-panel`、`memory-proxy`。它默认使用 SQLite、BM25、
+关闭遥测和外部可观测性，只把 LLM 作为一个明确配置的内网 OpenAI-compatible
+依赖。
 
 ```bash
-git clone https://github.com/Tencent/TencentDB-Agent-Memory.git
-cd TencentDB-Agent-Memory/deploy/global-images
+git clone https://github.com/Allenskoo856/TencentDB-Agent-Memory.git
+cd TencentDB-Agent-Memory/deploy/intranet
 cp .env.example .env
-$EDITOR .env       # 填入两组 LLM 参数（memory 组 + proxy 组）
-./start-all.sh     # 一键起；结束会打印 claude 可直接复制的一行命令
+$EDITOR .env
+docker compose config
+docker compose build
+docker compose up -d
+docker compose --profile bootstrap run --rm core-bootstrap
+./scripts/verify.sh
 ```
 
 打开 Panel：[http://localhost:8125](http://localhost:8125)。
 
-完整安装文档（Memory Hub 单独部署 / Proxy + Claude Code / CodeBuddy 用法 / 停止清理 / 端口
-说明等）见 [**INSTALL_CN.md**](./INSTALL_CN.md)（English: [INSTALL.md](./INSTALL.md)）。
+完整手册：
+
+- [内网容器化部署手册](./docs/DEPLOYMENT_CN.md)
+- [使用手册与 Agent 接入](./docs/USAGE_CN.md)
+- [Compose 目录说明](./deploy/intranet/README_CN.md)
+
+旧的 `deploy/global-images` 仍保留用于兼容已有云端镜像流程；它不是本次内网
+源码构建交付的 canonical 路径。通用安装背景仍可参考
+[INSTALL_CN.md](./INSTALL_CN.md)（English: [INSTALL.md](./INSTALL.md)）。
 
 ### 从旧版本迁移数据
 

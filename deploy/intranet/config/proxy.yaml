@@ -1,0 +1,108 @@
+server:
+  host: 0.0.0.0
+  port: 8096
+  forwardTimeoutMs: 600000
+
+upstream:
+  url: "${INTRANET_LLM_BASE_URL}"
+  apiKey: "${INTRANET_LLM_API_KEY}"
+  agents: {}
+
+log:
+  file: ""
+  verbose: false
+  level: info
+  backend: console
+
+redis:
+  enabled: false
+
+# Rate limiting is Redis-backed in the upstream proxy. Keep it explicitly off
+# in this four-service SQLite profile so the proxy does not silently fail open.
+# Add an internal Redis service and enable this block when TPM/QPM is required.
+rateLimit:
+  tpm: 0
+  qpm: 0
+
+storage:
+  enabled: true
+  backend: sqlite
+  ttlDays: 7
+  sqlite:
+    dbPath: /data/tdai-memory-proxy/proxy.db
+  fs:
+    fsRoot: /data/tdai-memory-proxy/storage
+
+opik:
+  enabled: false
+langfuse:
+  enabled: false
+clickhouse:
+  enabled: false
+creditReport:
+  url: ""
+
+auth:
+  enabled: true
+  url: http://memory-core:8420
+  apiKey: "${TDAI_GATEWAY_API_KEY}"
+  timeoutMs: 5000
+
+injection:
+  enabled: true
+  injectors: [skill, knowledge, tdai-memory]
+  externalGatewayUrl: "${TDAI_PROXY_PUBLIC_URL}"
+
+extraction:
+  enabled: true
+  extractors: [skill, tdai-memory]
+
+sessionInit:
+  enabled: true
+  maxRetries: 3
+  injectAgentContext: true
+  injectTaskContext: true
+  headerAutoSelect:
+    enabled: true
+    teamHeader: x-team-id
+    agentHeader: x-agent-id
+    taskHeader: x-task-id
+    onMismatch: form
+
+tdai:
+  enabled: true
+  endpoint: http://memory-core:8420
+  apiKey: "${TDAI_GATEWAY_API_KEY}"
+  serviceId: default
+  memory:
+    enabled: true
+    inject: true
+    writeL0: true
+    recallL1: true
+    injectL2L3: true
+    l1Limit: 5
+    l2Limit: 3
+    timeoutMs: 5000
+
+skill:
+  endpoint: http://memory-core:8420
+  serviceToken: "${TDAI_GATEWAY_API_KEY}"
+  serviceId: default
+  timeoutMs: 1500
+
+knowledge:
+  enabled: true
+  endpoint: http://memory-core:8420
+  serviceToken: "${TDAI_GATEWAY_API_KEY}"
+  serviceId: default
+  timeoutMs: 1500
+
+skillRuntime:
+  allowLlmWrite: false
+
+costGuard:
+  enabled: false
+  markerOptIn: false
+
+admin:
+  apiKey: "${TDAI_GATEWAY_API_KEY}"

@@ -1,0 +1,11 @@
+{
+  "instances": [
+    {
+      "id": "default",
+      "name": "内网默认记忆实例",
+      "gateway_endpoint": "http://memory-core:8420",
+      "proxy_endpoint": "${TDAI_PROXY_PUBLIC_URL}",
+      "api_key": "${TDAI_GATEWAY_API_KEY}"
+    }
+  ]
+}

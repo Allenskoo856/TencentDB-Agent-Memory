@@ -1,5 +1,9 @@
 # TencentDB-Agent-Memory
 
+> **内网部署入口（推荐）**：请使用 [`deploy/intranet/docker-compose.yml`](./deploy/intranet/docker-compose.yml)
+> 和 [内网容器化部署手册](./docs/DEPLOYMENT_CN.md)。本文下面的旧命令只描述
+> MemoryCore 单服务镜像，不能替代四服务 Compose，也不包含 Panel、Knowledge 和 Proxy。
+
 AI Agent 长期记忆服务，为任意 Agent 框架提供四层渐进式记忆能力（L0 对话 → L1 原子记忆 → L2 场景归纳 → L3 用户画像）。
 
 ## 镜像信息

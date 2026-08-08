@@ -30,6 +30,10 @@
 
 # Installation
 
+For an intranet deployment, use the source-built four-service Compose profile:
+[Chinese deployment guide](./docs/DEPLOYMENT_CN.md) · [Chinese usage guide](./docs/USAGE_CN.md).
+The canonical files are under [`deploy/intranet`](./deploy/intranet/README_CN.md).
+
 Start all three services in one go (`memory-core` + `memory-hub` + `proxy`):
 
 ```bash

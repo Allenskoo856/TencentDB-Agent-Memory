@@ -139,6 +139,7 @@ export const DEFAULT_CONFIG: ProxyConfig = {
   auth: {
     enabled: false,
     url: "",
+    apiKey: "",
     timeoutMs: 5000,
   },
   systemUsers: [],
@@ -165,7 +166,7 @@ export function loadYamlConfig(filePath: string): RawYamlConfig {
     console.log(
       `[config] loaded ${filePath} (top-level sections: ${Object.keys(parsed as object).join(",")})`,
     );
-    return parsed as RawYamlConfig;
+    return expandEnvVars(parsed) as RawYamlConfig;
   } catch (err: unknown) {
     const e = err as NodeJS.ErrnoException;
     if (e.code === "ENOENT") {
@@ -473,6 +474,10 @@ export function buildConfig(overrides: CliOverrides = {}): ProxyConfig {
     auth: {
       enabled: yaml.auth?.enabled ?? DEFAULT_CONFIG.auth.enabled,
       url: yaml.auth?.url ?? DEFAULT_CONFIG.auth.url,
+      apiKey:
+        (process.env.TDAI_PROXY_AUTH_API_KEY ?? "").trim() ||
+        yaml.auth?.apiKey ||
+        DEFAULT_CONFIG.auth.apiKey,
       timeoutMs: yaml.auth?.timeoutMs ?? DEFAULT_CONFIG.auth.timeoutMs,
     },
     // Entries without a non-empty userId are silently dropped — matching is
@@ -481,8 +486,6 @@ export function buildConfig(overrides: CliOverrides = {}): ProxyConfig {
     // requests (exactly the wrong direction of failure). `userKey` stayed
     // optional: it's kept as a log-only reference to the historical sk-mem
     // key and no longer influences matching.
-    // `${VAR}` in string values is expanded from process.env at load time
-    // so the yaml can reference secrets without hard-coding them.
     systemUsers: (yaml.systemUsers ?? [])
       .map((u) => ({
         name: expandEnv(u.name ?? "").trim(),
@@ -542,9 +545,8 @@ export function buildConfig(overrides: CliOverrides = {}): ProxyConfig {
  * Expand `${VAR}` / `${VAR:-default}` references in a string using
  * `process.env`. Missing vars with no default become an empty string.
  *
- * Deliberately scoped narrowly (only called from `systemUsers` today) to
- * avoid changing the semantics of other fields where a literal `${...}`
- * might already be in use (regex-adjacent config, prompts, etc).
+ * This is applied to all YAML string leaves so a deployment template can
+ * safely compose values such as `${INTRANET_LLM_BASE_URL}/chat/completions`.
  */
 function expandEnv(input: string): string {
   return input.replace(/\$\{([A-Z_][A-Z0-9_]*)(?::-([^}]*))?\}/gi, (_m, name: string, def?: string) => {
@@ -552,6 +554,17 @@ function expandEnv(input: string): string {
     if (val !== undefined && val !== "") return val;
     return def ?? "";
   });
+}
+
+function expandEnvVars(value: unknown): unknown {
+  if (typeof value === "string") return expandEnv(value);
+  if (Array.isArray(value)) return value.map(expandEnvVars);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>).map(([key, entry]) => [key, expandEnvVars(entry)]),
+    );
+  }
+  return value;
 }
 
 /** Parse process.argv into CliOverrides (minimal arg parser, no extra deps). */

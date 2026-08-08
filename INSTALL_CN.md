@@ -2,6 +2,10 @@
 
 ← 返回 [README_CN.md](./README_CN.md) · English: [INSTALL.md](./INSTALL.md)
 
+> 内网源码构建的 canonical 流程已迁移到 [docs/DEPLOYMENT_CN.md](./docs/DEPLOYMENT_CN.md)，
+> 使用说明见 [docs/USAGE_CN.md](./docs/USAGE_CN.md)。本文中的 `deploy/global-images`
+> 适用于已有镜像/旧流程兼容，不应作为新内网交付的唯一验收依据。
+
 本文覆盖三种安装形态：
 1. **完整三件套**：`memory-core` + `memory-hub` + `proxy` 一键起（推荐，能让 Claude Code 之类的 coding agent 直接用上团队记忆 / 知识 / skill 注入）
 2. **只装 Memory Hub**：已有 Memory Core 运行在本机时的轻量部署

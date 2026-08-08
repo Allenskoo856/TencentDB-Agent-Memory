@@ -58,9 +58,6 @@ importers:
         specifier: ^3.2.2
         version: 3.2.6(@types/node@22.20.0)(tsx@4.23.0)(yaml@2.9.0)
     optionalDependencies:
-      '@context-proxy/cost-guard':
-        specifier: file:packages/cost-guard
-        version: file:packages/cost-guard(cos-nodejs-sdk-v5@2.15.4)
       better-sqlite3:
         specifier: ^11.5.0
         version: 11.10.0
@@ -73,14 +70,6 @@ packages:
   '@clickhouse/client@1.23.0':
     resolution: {integrity: sha512-Li6TBcRKfWVxyJa8g+lJwuyn+r+zV/pJJ3yxn3TVlC00vH+zfZ6njFXsZfqIamGXHRrY5iPhAEZu2hSWzlSo3Q==}
     engines: {node: '>=20'}
-
-  '@context-proxy/cost-guard@file:packages/cost-guard':
-    resolution: {directory: packages/cost-guard, type: directory}
-    peerDependencies:
-      cos-nodejs-sdk-v5: ^2.15.4
-    peerDependenciesMeta:
-      cos-nodejs-sdk-v5:
-        optional: true
 
   '@esbuild/aix-ppc64@0.28.1':
     resolution: {integrity: sha512-Svl7tq8k/08+p6CXPpRjQ1fKX+1odH/BQbb48fV6fj3CWHhsoIOoY87w1oHXm0qEpkIK3ZfVgp0hed3XBXzXMQ==}
@@ -1417,11 +1406,6 @@ packages:
 snapshots:
 
   '@clickhouse/client@1.23.0': {}
-
-  '@context-proxy/cost-guard@file:packages/cost-guard(cos-nodejs-sdk-v5@2.15.4)':
-    optionalDependencies:
-      cos-nodejs-sdk-v5: 2.15.4
-    optional: true
 
   '@esbuild/aix-ppc64@0.28.1':
     optional: true
