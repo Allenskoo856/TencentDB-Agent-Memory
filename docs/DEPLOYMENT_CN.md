@@ -225,6 +225,25 @@ docker compose --env-file .env up -d --no-build
 
 `verify.sh` 只依赖健康端点和 Core 本地鉴权；它不会把“容器启动”误报成“LLM 业务调用成功”。完整 LLM 业务验收必须使用内网模型端点做一次真实请求。
 
+### 8.3 Debian 10/UOS 兼容启动门禁
+
+仓库的 `Intranet container validation` Action 在四个镜像构建完成后会运行
+`scripts/verify-debian10-uos-runtime.sh`。这个门禁包含三部分：
+
+1. 拉起 `debian:10`（buster）控制容器，确认 Debian 10 用户态和普通运行身份可用；
+2. 对四个实际业务镜像检查 Linux 平台以及 `10001:10001` 非 root 身份；
+3. 以 `--network none`、临时可写数据目录和普通 UID/GID 启动 Core、Knowledge、Panel、Proxy，等待各自的 Docker healthcheck 变为 `healthy`。
+
+本地复现：
+
+```bash
+cd deploy/intranet
+docker pull debian:10
+./scripts/verify-debian10-uos-runtime.sh
+```
+
+这个 Action 使用 GitHub 托管的 Linux runner，因此它验证的是 Debian 10 用户态下的容器启动边界、非 root 写入和运行期不出网行为，不能等同于真实 UOS 主机内核、UOS Docker 版本或目标 CPU 架构验收。将制品放到 UOS 后，仍需在 UOS 主机执行同一个脚本，并继续执行 `docker compose up -d --no-build`、`scripts/verify.sh` 以及一次真实内网 LLM 请求。若要把真实 UOS 接入 GitHub Action，需要另外注册带有 `self-hosted,linux,uos` 标签的 runner；当前 fork 没有 self-hosted runner。
+
 ## 9. 数据、备份和恢复
 
 必须整体备份三个命名卷：
