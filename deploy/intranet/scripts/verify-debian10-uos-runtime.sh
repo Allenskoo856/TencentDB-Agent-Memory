@@ -10,6 +10,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 repo_root=$(CDPATH= cd -- "$script_dir/../../.." && pwd)
 
 debian_image=${DEBIAN_IMAGE:-debian:10}
+pull_debian_image=${PULL_DEBIAN_IMAGE:-0}
 runtime_uid=${RUNTIME_UID:-10001}
 runtime_gid=${RUNTIME_GID:-10001}
 smoke_timeout_seconds=${SMOKE_TIMEOUT_SECONDS:-150}
@@ -24,6 +25,10 @@ case "$runtime_uid" in
 esac
 case "$runtime_gid" in
   ''|*[!0-9]*) echo "RUNTIME_GID must be numeric" >&2; exit 2 ;;
+esac
+case "$pull_debian_image" in
+  0|1) ;;
+  *) echo "PULL_DEBIAN_IMAGE must be 0 or 1" >&2; exit 2 ;;
 esac
 
 command -v docker >/dev/null 2>&1 || {
@@ -71,7 +76,10 @@ check_image_user() {
 }
 
 echo "Checking Debian 10 userspace and ordinary runtime identity"
-docker pull "$debian_image" >/dev/null
+if [ "$pull_debian_image" = 1 ]; then
+  docker pull "$debian_image" >/dev/null
+fi
+require_image "$debian_image"
 docker run --rm \
   --network none \
   --user "$runtime_uid:$runtime_gid" \

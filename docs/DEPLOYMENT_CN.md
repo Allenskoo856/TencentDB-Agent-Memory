@@ -239,8 +239,10 @@ docker compose --env-file .env up -d --no-build
 ```bash
 cd deploy/intranet
 docker pull debian:10
-./scripts/verify-debian10-uos-runtime.sh
+PULL_DEBIAN_IMAGE=0 ./scripts/verify-debian10-uos-runtime.sh
 ```
+
+GitHub Action 会显式设置 `PULL_DEBIAN_IMAGE=1`，仅用于在构建 runner 上准备控制镜像；UOS 或完全离线目标机不要在验证脚本中拉公网镜像，应先把 `debian:10` 与四个业务镜像一并导入本地 Docker，然后保持 `PULL_DEBIAN_IMAGE=0`。
 
 这个 Action 使用 GitHub 托管的 Linux runner，因此它验证的是 Debian 10 用户态下的容器启动边界、非 root 写入和运行期不出网行为，不能等同于真实 UOS 主机内核、UOS Docker 版本或目标 CPU 架构验收。将制品放到 UOS 后，仍需在 UOS 主机执行同一个脚本，并继续执行 `docker compose up -d --no-build`、`scripts/verify.sh` 以及一次真实内网 LLM 请求。若要把真实 UOS 接入 GitHub Action，需要另外注册带有 `self-hosted,linux,uos` 标签的 runner；当前 fork 没有 self-hosted runner。
 

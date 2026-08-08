@@ -57,6 +57,7 @@ jobs:
             -lc 'npm run typecheck'
       - name: Debian 10 and UOS-compatible startup smoke
         env:
+          PULL_DEBIAN_IMAGE: "1"
           RUNTIME_UID: "10001"
           RUNTIME_GID: "10001"
         run: |
