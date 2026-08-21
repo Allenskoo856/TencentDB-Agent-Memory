@@ -49,7 +49,7 @@ import type { TdaiIdentity, TdaiMessage } from "./tdai/types.js";
 import { triggerSkillExtractIfReady } from "./skill/handler-glue.js";
 import { emitModelIntentTelemetry } from "./session/model-intent-telemetry.js";
 import { isExtractionAllowed, logExtractionSkipped } from "./extraction-gate.js";
-import type { CcRequestKind } from "./common/cc-request-classifier.js";
+import type { RequestKind } from "./agent-adapters/types.js";
 import { buildRequestDebugMetadata } from "./common/langfuse-debug.js";
 import { resolveAgentAdapter } from "./agent-adapters/index.js";
 import {
@@ -565,7 +565,7 @@ export async function handleAnthropicMessages(
     ? _pathPartsEarly[0] : undefined;
   const agentAdapter = resolveAgentAdapter(_agentFromPathEarly ?? "claude-code");
   const ccRoutingEnabled = config.ccRequestRouting?.enabled === true;
-  const requestKind: CcRequestKind = ccRoutingEnabled ? agentAdapter.classifyRequest(body) : "main";
+  const requestKind: RequestKind = ccRoutingEnabled ? agentAdapter.classifyRequest(body) : "main";
 
   // ── Model gate: reject requests whose `model` is not a registered display name ──
   // 价目表已配置时，客户端 `model` 必须匹配某条 entry 的 `modelName`（展示名，
@@ -1924,8 +1924,8 @@ interface AnthropicTapContext {
   spaceId?: string;
   /** Upstream response header `x-request-id` (empty when not returned). */
   upstreamRequestId?: string;
-  /** CC 请求分流类别，决定 stream 完成后是否触发 skill/L0 副作用。 */
-  requestKind: CcRequestKind;
+  /** 客户端请求分流类别，决定 stream 完成后是否触发 skill/L0 副作用。 */
+  requestKind: RequestKind;
   /** `config.langfuse.debug === true` 的求值结果，透传避免流内重复读 config。 */
   langfuseDebug: boolean;
   /** buildRequestDebugMetadata 求值结果；debug=false 时为 {}。 */

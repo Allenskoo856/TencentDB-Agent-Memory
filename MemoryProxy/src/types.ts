@@ -906,6 +906,8 @@ export interface RequestLogEntry {
   sessionKey?: string; // conversationId || keyId — per-conversation isolation key
   upstreamUrl: string;
   stream: boolean;
+  /** Proxy-generated request identifier used to correlate request and usage logs. */
+  traceId?: string;
   temperature?: number;
   maxTokens?: number;
   routedFrom?: string;     // original model if routing was applied
