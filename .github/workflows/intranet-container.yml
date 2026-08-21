@@ -24,6 +24,8 @@ jobs:
           sh -n deploy/intranet/scripts/bootstrap-admin.sh
           sh -n deploy/intranet/scripts/verify.sh
           sh -n deploy/intranet/scripts/verify-debian10-uos-runtime.sh
+          sh -n deploy/intranet/scripts/package-offline-media.sh
+          sh -n deploy/intranet/scripts/verify-offline-media.sh
       - name: Render Compose configuration
         run: |
           cp deploy/intranet/.env.example deploy/intranet/.env
@@ -62,3 +64,28 @@ jobs:
           RUNTIME_GID: "10001"
         run: |
           sh deploy/intranet/scripts/verify-debian10-uos-runtime.sh
+      - name: Package Linux amd64 offline medium
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          SOURCE_BRANCH: ${{ github.ref_name }}
+          TARGET_PLATFORM: linux/amd64
+          INCLUDE_DEBIAN_IMAGE: "1"
+        run: |
+          sh deploy/intranet/scripts/package-offline-media.sh artifacts
+      - name: Verify packaged offline medium
+        run: |
+          archive=$(find artifacts -maxdepth 1 -name '*.tar.gz' -print -quit)
+          test -n "$archive"
+          media_dir=$(mktemp -d)
+          tar -xzf "$archive" -C "$media_dir"
+          sh deploy/intranet/scripts/verify-offline-media.sh \
+            "$media_dir/$(basename "$archive" .tar.gz)"
+      - name: Upload offline medium
+        uses: actions/upload-artifact@v4
+        with:
+          name: tdai-memory-intranet-offline-${{ github.sha }}
+          path: |
+            artifacts/*.tar.gz
+            artifacts/*.sha256
+          if-no-files-found: error
+          retention-days: 30

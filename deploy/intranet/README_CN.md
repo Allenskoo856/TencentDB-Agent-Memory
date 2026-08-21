@@ -47,3 +47,5 @@ docker compose --profile bootstrap run --rm core-bootstrap
 - `scripts/bootstrap-admin.sh`：幂等初始化 Core system admin；首次创建返回 200，已有数据返回 409 都视为可继续。
 - `scripts/verify.sh`：四个 health、Core 双层鉴权以及 Proxy 非法 user key 边界验证。
 - `scripts/verify-debian10-uos-runtime.sh`：Debian 10 用户态、普通 UID/GID、`--network none` 和四镜像启动健康检查；真实 UOS 主机仍需执行一次。
+- `scripts/package-offline-media.sh`：把已构建镜像、无密钥 Compose 配置、手册和清单打包成离线介质。
+- `scripts/verify-offline-media.sh`：校验介质内 SHA256；增加 `--docker-smoke` 可导入镜像并执行 Debian 10/UOS 兼容启动 smoke。

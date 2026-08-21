@@ -225,6 +225,25 @@ docker compose --env-file .env up -d --no-build
 
 `verify.sh` 只依赖健康端点和 Core 本地鉴权；它不会把“容器启动”误报成“LLM 业务调用成功”。完整 LLM 业务验收必须使用内网模型端点做一次真实请求。
 
+仓库的 `Intranet container validation` Action 会在四镜像构建、类型检查和 Debian 10/UOS 兼容启动 smoke 通过后，生成 `tdai-memory-intranet-offline-<commit>.tar.gz` 及外层 `.sha256`，并作为保留 30 天的 Action artifact 上传。介质内还包含 `MANIFEST.json`、镜像归档、部署配置、中文手册和 `SHA256SUMS`。
+
+下载 Action artifact 后，在有 Docker 的 Linux/UOS 主机上验证：
+
+```bash
+sha256sum -c tdai-memory-intranet-offline-<commit>.tar.gz.sha256
+tar -xzf tdai-memory-intranet-offline-<commit>.tar.gz
+cd tdai-memory-intranet-offline-<commit>
+./deploy/intranet/scripts/verify-offline-media.sh .
+```
+
+如果目标机已经预置 `debian:10` 控制镜像，也可以执行 `--docker-smoke`；脚本默认不拉公网镜像：
+
+```bash
+./deploy/intranet/scripts/verify-offline-media.sh . --docker-smoke
+```
+
+Action runner 会显式拉取 `debian:10` 作为构建/验证控制镜像；UOS 目标机必须先导入介质中的镜像，再执行上述验证。Action artifact 不是永久 Release，正式长期交付应将同一归档和外层 checksum 复制到内网制品库或 GitHub Release，并重新下载核验。
+
 ### 8.3 Debian 10/UOS 兼容启动门禁
 
 仓库的 `Intranet container validation` Action 在四个镜像构建完成后会运行
