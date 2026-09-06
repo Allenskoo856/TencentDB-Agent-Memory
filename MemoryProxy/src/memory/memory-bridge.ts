@@ -72,6 +72,11 @@ interface SessionIdFields {
    * session_key —— 埋点不能猜前缀，必须用真实命中的 key。
    */
   composite_key?: string;
+  /**
+   * Agent source ("claude-code" / "codebuddy" / ...) resolved from the
+   * composite session-key prefix; the L2 binding carries it directly.
+   */
+  agent_source?: string;
 }
 
 /**
@@ -108,6 +113,7 @@ function toIdFields(
     user_key: s.user_key,
     space_id: s.space_id,
     composite_key: compositeKey,
+    agent_source: agentSourceFromSessionKey(compositeKey),
   };
 }
 
@@ -128,6 +134,7 @@ function bindingToIdFields(
     user_key: binding.userKey,
     space_id: spaceId,
     composite_key: `${agentSource}:${sessionId}`,
+    agent_source: agentSource,
   };
 }
 
